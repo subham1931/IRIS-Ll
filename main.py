@@ -428,6 +428,37 @@ class IrisLive:
         self.ui.get_plugin_settings = self._plugin_registry.settings_schemas  # ⚙ settings tab
         self.ui.request_say = self.plugin_say   # plugins: mid-task speech channel
 
+        # ── Goal & Task Engine ───────────────────────────────────────────────
+        from goal.manager import GoalManager
+        from actions.goal_action import set_goal_manager
+        from memory.memory_manager import format_memory_for_prompt, update_memory
+
+        def _action_runner(action_name: str, parameters: dict, ctx: dict):
+            if self._action_registry.has(action_name):
+                _ctx = dict(ctx)
+                _ctx.setdefault("player", self.ui)
+                _ctx.setdefault("speak", self.speak)
+                return self._action_registry.run(action_name, parameters, _ctx)
+            if self._plugin_registry.has(action_name):
+                return self._plugin_registry.run(action_name, parameters, player=self.ui, session_memory=None)
+            return f"Action '{action_name}' not found."
+
+        def _get_tools_fn():
+            return self._action_registry.get_tool_declarations() + self._plugin_registry.get_tool_declarations()
+
+        self.goal_manager = GoalManager(
+            action_runner=_action_runner,
+            get_tools_fn=_get_tools_fn,
+            get_memory_fn=format_memory_for_prompt,
+            save_memory_fn=update_memory,
+            ui_show_content=self.ui.show_content,
+            ui_write_log=self.ui.write_log,
+            ui_speak=self.speak,
+            confirmation_fn=confirm_gate.request,
+            api_key_provider=_get_api_key,
+        )
+        set_goal_manager(self.goal_manager)
+
         # ── Wake word ────────────────────────────────────────────────────────
         # _awake gates the mic (see _listen_audio) and the background speakers.
         # It is True whenever wake word is OFF, so default behaviour is unchanged.
@@ -1560,6 +1591,14 @@ class IrisLive:
         # Enumerate audio devices off-thread. The settings drawer must never pay
         # for host-API enumeration on the Qt thread.
         audio_devices.prefetch()
+
+        # Recover any incomplete goals from previous sessions
+        try:
+            incomplete = self.goal_manager.recover_incomplete_goals()
+            if incomplete:
+                self.ui.write_log(f"SYS: Recovered {len(incomplete)} incomplete goal(s) in paused state.")
+        except Exception as e:
+            print(f"[Goal] Recovery check error: {e}")
 
         # Start dashboard (optional — needs: pip install fastapi "uvicorn[standard]" cryptography)
         try:

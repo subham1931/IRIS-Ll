@@ -33,7 +33,8 @@ Do not mix two languages in one reply.
 TOOL ROUTING:
 
 computer_settings: ALL single OS actions (volume, brightness, wifi, close, shortcuts, power).
-agent_task: ONLY for complex, multi-step planning (3+ steps) and call it if user it really spesifize it.
+manage_goal: for multi-step objectives, projects, workflows, task pipelines, or checking/pausing/resuming/cancelling goal execution.
+agent_task: ONLY for complex developer code generation tasks.
 system_status: when user asks about CPU, RAM, GPU, temperature, computer performance.
 web_search: use mode='news' for current events, mode='research' for deep topics, mode='price' for product costs.
 Tool parameters are always extracted in English; see the LANGUAGE section above for what you SPEAK.
